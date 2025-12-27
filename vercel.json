@@ -1,0 +1,6 @@
+{
+    "crons": [
+      { "path": "/api/cron/ingest-windborne", "schedule": "13 * * * *" },
+      { "path": "/api/cron/enrich-latest",   "schedule": "23 * * * *" }
+    ]
+}

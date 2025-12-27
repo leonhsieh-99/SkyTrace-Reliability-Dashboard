@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Snapshot {
+  id Int @id @default(autoincrement())
+  hourOffset Int
+  createdAt DateTime @default(now())
+  count Int
+  parseOk Boolean @default(true)
+  error Json?
+
+  observations Observation[]
+
+  @@index([hourOffset, createdAt])
+}
+
+model Observation {
+  snapshotId Int
+  balloonIndex Int
+  lat Float?
+  lon Float?
+  alt Float?
+  parseOk Boolean @default(true)
+  raw Json?
+  errors Json?
+  snap Snapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@id([snapshotId, balloonIndex])
+  @@index([balloonIndex])
+}
+
+model Reliability {
+  balloonIndex Int @id
+  score Float
+  missingCount Int
+  teleportCount Int
+  maxGap Int
+  reasons Json?
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([updatedAt])
+}
