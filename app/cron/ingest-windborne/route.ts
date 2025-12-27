@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { cache } from "react";
-import { Prisma } from "@prisma/client";
 
 function verifyCron(req: NextRequest) {
     const auth = req.headers.get('authorization')
@@ -70,7 +69,6 @@ export async function GET(req: NextRequest) {
                         hourOffset: i,
                         count: dataArr.length,
                         parseOk: Array.isArray(snap),
-                        error: Array.isArray(snap) ? Prisma.DbNull : { message: "snap is not an array" },
                     },
                     select: {id : true}
                 })
@@ -97,7 +95,6 @@ export async function GET(req: NextRequest) {
                         alt: p.alt,
                         parseOk: true,
                         raw: row as any,
-                        errors: Prisma.DbNull
                     }
                 })
 

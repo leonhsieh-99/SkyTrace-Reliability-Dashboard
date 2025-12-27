@@ -2,7 +2,7 @@ name: Ingest Windborne Data
 
 on:
   schedule:
-    - cron: "*/60 * * * *" # every 30 minutes UTC
+    - cron: "*/60 * * * *" # every 60 minutes UTC
   workflow_dispatch: # allows manual run
 
 jobs:
