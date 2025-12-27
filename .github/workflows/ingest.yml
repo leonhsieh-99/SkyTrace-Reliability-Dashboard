@@ -1,0 +1,16 @@
+name: Ingest Windborne Data
+
+on:
+  schedule:
+    - cron: "*/60 * * * *" # every 30 minutes UTC
+  workflow_dispatch: # allows manual run
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call Vercel Ingest
+        run: |
+          curl -X GET "https://sky-trace-reliability-dashboard.vercel.app/api/cron/ingest-windborne" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
