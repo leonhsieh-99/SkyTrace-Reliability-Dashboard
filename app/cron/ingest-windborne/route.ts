@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { cache } from "react";
+import { Prisma } from "@prisma/client";
 
 function verifyCron(req: NextRequest) {
     const auth = req.headers.get('authorization')
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
             hours.map(hr => fetchHr(hr))
         )
 
-        const ingested = await prisma.$transaction(async (tx) => {
+        const ingested = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             await tx.snapshot.deleteMany()
             let totalObs = 0
 
