@@ -12,5 +12,5 @@ jobs:
     steps:
       - name: Call Vercel Ingest
         run: |
-          curl -X GET "https://sky-trace-reliability-dashboard.vercel.app/api/cron/ingest-windborne" \
+          curl -X GET "https://sky-trace-reliability-dashboard.vercel.app/api/cron/pipeline" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
