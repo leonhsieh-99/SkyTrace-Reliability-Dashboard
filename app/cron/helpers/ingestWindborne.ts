@@ -15,7 +15,7 @@ export async function ingestWindborne(results: any[]) {
     const KEEP_RUNS = 24;
 
     return await prisma.$transaction(async (tx: any) => {
-        const run = await prisma.ingestRun.create({
+        const run = await tx.ingestRun.create({
             data: { ingestOk: false },
             select: { id: true }
         })
@@ -79,7 +79,7 @@ export async function ingestWindborne(results: any[]) {
         })
 
         // prune old runs
-        const cutoff = await prisma.ingestRun.findFirst({
+        const cutoff = await tx.ingestRun.findFirst({
             orderBy: { id: 'desc' },
             skip: KEEP_RUNS,
             select: { id: true }
