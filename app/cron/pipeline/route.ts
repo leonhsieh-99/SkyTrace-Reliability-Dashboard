@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyCron } from "../helpers/verifyCron";
 import { ingestWindborne } from "../helpers/ingestWindborne";
 import fetchHr from "../helpers/fetchHr";
+import calculateReliability from "../helpers/calculateReliability";
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,7 +11,7 @@ export async function POST(req: NextRequest) {
         const results = await Promise.all(hours.map(fetchHr))
 
         const ingestion = await ingestWindborne(results)
-        // calculateReliability()
+        const reliability = calculateReliability(ingestion.runId)
         // enrichLatest()
 
         return NextResponse.json({ ok: true, ingestion })

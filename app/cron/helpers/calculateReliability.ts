@@ -1,33 +1,130 @@
 import { prisma } from "@/prisma";
 import { json } from "stream/consumers";
 
-type point = { lat: number; lon: number; alt: number |null }
+type point = { lat: number; lon: number; alt: number | null }
 type Series = Array<point | null>
 
-function computeMetrics(series: Series) {
-    // computer metrics for this series of balloons
-    const metrics = {
-        score: 0,
-        missingCount: 0,
-        teleportCount: 0,
-        maxGap: 0,
-        reasons: {}
-    }
+const radian = ([a, b, c, d]: number[]) => ([a, b, c, d]).map(x => x * Math.PI / 180)
 
-    let maxGap = 0
-    for (const balloon of series) {
-        // calc missing count first
-        if (balloon?.lon == null || balloon?.lat == null) {
-            metrics.missingCount += 1
-            maxGap += 1
-            continue
-        }
-        
-        metrics.maxGap = Math.max(metrics.maxGap, maxGap)
-    }
+function computeHaversine(lat1: number, lat2: number, lon1: number, lon2:number, delta_time: number) {
+    [lat1, lat2, lon1, lon2] = radian([lat1, lat2, lon1, lon2])
+    const delta_lat = Math.abs(lat1 - lat2)
+    const delta_lon = Math.abs(lon1 - lon2)
 
-    return (metrics)
+    const a = Math.pow(Math.sin(delta_lat/2), 2) + (Math.cos(lat1)*Math.cos(lat2)*Math.pow(Math.sin(delta_lon/2), 2))
+    const c = 2 * Math.atan2(Math.pow(a, 0.5), Math.pow(1 - a, 0.5))
+    const R = 6371
+    const distance = c * R
+
+    const speed = distance / delta_time
+    return speed
 }
+
+function bearingRad(a: point, b: point) {
+    const [lat1, lat2, lon1, lon2] = radian([a.lat, b.lat, a.lon, b.lon]);
+    const dLon = lon2 - lon1;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    let brng = Math.atan2(y, x); // [-pi, pi]
+    if (brng < 0) brng += 2 * Math.PI; // [0, 2pi)
+    return brng;
+  }
+  
+  function angleDeltaDeg(b1: number, b2: number) {
+    // smallest difference between two bearings in degrees [0, 180]
+    const d = Math.abs(b2 - b1);
+    const wrapped = Math.min(d, 2 * Math.PI - d);
+    return (wrapped * 180) / Math.PI;
+  }
+  
+  function computeMetrics(series: Series) {
+    const metrics = {
+      score: 0,
+      missingCount: 0,
+      teleportCount: 0,
+      maxGap: 0,
+      reasons: {} as any,
+    };
+  
+    let maxSpeed = 0;
+    const teleports = { maxSpeed: 0, gt200: 0, gt350: 0, gt600: 0 };
+    const turns = { gt90: 0, gt135: 0 };
+    const alts = { maxAlt: 0, gt5: 0, gt10: 0 };
+  
+    let prev: point | null = null;
+    let prevPrev: point | null = null;
+    let prevBearing: number | null = null;
+  
+    let deltaTime = 1; // hours since last valid point
+    let gap = 0;
+  
+    for (const cur of series) {
+      if (!cur) {
+        metrics.missingCount++;
+        gap++;
+        deltaTime++;
+        continue;
+      }
+  
+      // close a gap
+      metrics.maxGap = Math.max(metrics.maxGap, gap);
+      gap = 0;
+  
+      if (prev) {
+        // speed (km/h)
+        const speed = computeHaversine(prev.lat, cur.lat, prev.lon, cur.lon, deltaTime);
+        maxSpeed = Math.max(maxSpeed, speed);
+        teleports.maxSpeed = maxSpeed;
+  
+        if (speed > 200) metrics.teleportCount++;
+  
+        if (speed > 600) teleports.gt600++;
+        else if (speed > 350) teleports.gt350++;
+        else if (speed > 200) teleports.gt200++;
+  
+        // altitude jump
+        if (prev.alt && cur.alt) {
+            const dAlt = Math.abs(prev.alt - cur.alt);
+            alts.maxAlt = Math.max(alts.maxAlt, dAlt);
+            if (dAlt > 10) alts.gt10++;
+            else if (dAlt > 5) alts.gt5++;
+        }
+  
+        // turn angle
+        if (prevPrev) {
+          const b1 = prevBearing ?? bearingRad(prevPrev, prev);
+          const b2 = bearingRad(prev, cur);
+          const turnDeg = angleDeltaDeg(b1, b2);
+  
+          if (turnDeg > 135) turns.gt135++;
+          else if (turnDeg > 90) turns.gt90++;
+  
+          prevBearing = b2;
+        } else {
+          prevBearing = bearingRad(prev, cur);
+        }
+      }
+  
+      prevPrev = prev;
+      prev = cur;
+      deltaTime = 1;
+    }
+  
+    metrics.maxGap = Math.max(metrics.maxGap, gap); // if series ends missing
+  
+    // scoring
+    let score = 100;
+    const missingScore = metrics.missingCount * 2 + metrics.maxGap * 5;
+    const teleportScore = 15 * teleports.gt600 + 8 * teleports.gt350 + 4 * teleports.gt200;
+    const turnScore = 5 * turns.gt135 + 2 * turns.gt90;
+    const altScore = 3 * alts.gt10 + 1 * alts.gt5;
+  
+    metrics.score = Math.max(0, score - missingScore - teleportScore - turnScore - altScore);
+    metrics.reasons = { maxSpeed, teleports, turns, alts };
+  
+    return metrics;
+  }
+  
 
 export default async function calculateReliability(runId: number) {
     const run = await prisma.ingestRun.findUnique({
