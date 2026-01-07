@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
         const reliability = calculateReliability(ingestion.runId)
         // enrichLatest()
 
-        return NextResponse.json({ ok: true, ingestion })
+        return NextResponse.json({ ok: true, ingestion, reliability })
     } catch (err: any) {
         console.log(err)
         return NextResponse.json(

@@ -130,7 +130,6 @@ export default async function calculateReliability(runId: number) {
     const run = await prisma.ingestRun.findUnique({
         where: { id: runId },
     })
-    console.log("[calcReliability] run", run);
     if (!run) throw new Error(`no run with id: ${runId}`)
     if (!run.ingestOk) throw new Error('run hasnt been ingested')
 
@@ -139,7 +138,6 @@ export default async function calculateReliability(runId: number) {
         select: { id: true, hourOffset: true },
         orderBy: { hourOffset: 'asc' },
     })
-    console.log("[calcReliability] snaps", snaps.length);
     if (snaps.length === 0) throw new Error('no snaps for this run')
 
     const snapIdToHour = new Map<number, number>()
@@ -160,8 +158,6 @@ export default async function calculateReliability(runId: number) {
             parseOk: true
         }
     })
-
-    console.log("[calcReliability] obs", obs.length);
 
     const byBalloon = new Map<number, Series>()
 
@@ -208,19 +204,12 @@ export default async function calculateReliability(runId: number) {
         })
     }
 
-    console.log("[calcReliability] rows to insert", rows.length);
-
     await prisma.reliability.deleteMany({where: {runId}}),
     await prisma.reliability.createMany({data: rows}),
     await prisma.ingestRun.update({
         where: { id: runId },
         data: { reliabilityAt: new Date()}
     })
-
-    console.log("[calcReliability] done", {
-        runId,
-        balloons: rows.length,
-      });
 
     return { runId, balloons: rows.length }
 }
