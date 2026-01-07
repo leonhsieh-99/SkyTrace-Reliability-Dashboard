@@ -3,6 +3,8 @@ import { json } from "stream/consumers"
 
 type point = { lat: number; lon: number; alt: number | null }
 type Series = Array<point | null>
+type TeleportEvent = { hourOffset: number; from: {lat: number; lon: number}; to: {lat: number; lon: number}; dtHours: number; speed: number }
+type MissingEdge = { hourOffset: number; kind: "gap_start" | "gap_end"; lat: number; lon: number }
 
 const radian = ([a, b, c, d]: number[]) => ([a, b, c, d]).map(x => x * Math.PI / 180)
 
@@ -48,10 +50,10 @@ function bearingRad(a: point, b: point) {
   
     let maxSpeed = 0
     const teleports = { maxSpeed: 0, gt200: 0, gt350: 0, gt600: 0 }
-    let teleportEvents = Array<{ hourOffset: number; from: {lat: number; lon: number}; to: {lat: number; lon: number}; dtHours: number; speed: number }>()
+    let teleportEvents = Array<TeleportEvent>()
     const turns = { gt90: 0, gt135: 0 }
     const alts = { maxAlt: 0, gt5: 0, gt10: 0 }
-    let missingEdges = Array<{ hourOffset: number; kind: 'gap_start' | 'gap_end'; lat: number; lon: number }>()
+    let missingEdges = Array<MissingEdge>()
   
     let prev: point | null = null
     let prevPrev: point | null = null
