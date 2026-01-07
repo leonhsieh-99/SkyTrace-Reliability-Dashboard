@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
         const results = await Promise.all(hours.map(fetchHr))
 
         const ingestion = await ingestWindborne(results)
-        const reliability = calculateReliability(ingestion.runId)
+        const reliability = await calculateReliability(ingestion.runId)
         // enrichLatest()
 
         return NextResponse.json({ ok: true, ingestion, reliability })
