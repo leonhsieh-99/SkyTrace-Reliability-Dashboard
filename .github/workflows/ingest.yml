@@ -3,7 +3,7 @@ name: Run Data Pipeline
 on:
   schedule:
     - cron: "0 * * * *" # every hr UTC
-  workflow_dispatch: # allows manual run
+  workflow_dispatch:
 
 jobs:
   ingest:
@@ -12,5 +12,6 @@ jobs:
     steps:
       - name: Call Vercel Ingest
         run: |
-          curl -X GET "https://sky-trace-reliability-dashboard.vercel.app/api/cron/pipeline" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          curl -X POST "https://sky-trace-reliability-dashboard.vercel.app/cron/pipeline" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Length: 0"

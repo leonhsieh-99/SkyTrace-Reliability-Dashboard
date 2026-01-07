@@ -12,7 +12,7 @@ function parsePoint(x: any): {lat: number; lon: number; alt: number} | null {
 }
 
 export async function ingestWindborne(results: any[]) {
-    const KEEP_RUNS = 24;
+    const KEEP_RUNS = 168;
 
     const run = await prisma.ingestRun.create({
         data: { ingestOk: false },

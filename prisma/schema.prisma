@@ -24,7 +24,6 @@ model IngestRun {
 
   snapshots Snapshot[]
   reliabilities Reliability[]
-  weatherCells WeatherCell[]
 
   @@index([startedAt])
 }
@@ -80,25 +79,27 @@ model Reliability {
   @@index([updatedAt])
 }
 
-model WeatherCell {
+model WeatherCacheCell {
   id Int @id @default(autoincrement())
-  runId Int
 
-  latBucket Float
-  lonBucket Float
+  // key
+  time DateTime // exact UTC hour timestamp (e.g. 2026-01-07T20:00:00Z)
+  latBucket Decimal @db.Decimal(6,3)
+  lonBucket Decimal @db.Decimal(6,3)
+  model String // e.g. "gfs", "hrrr"
+  varsVersion String @default("v1")
 
-  snapshotId Int
-  time DateTime
-
+  // weather vars (hourly)
   temp2m Float?
   windspeed10m Float?
   winddir10m Float?
   pressureMsl Float?
+  precipitation Float?
+  windgusts10m Float?
 
   createdAt DateTime @default(now())
 
-  run IngestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-
-  @@unique([snapshotId, time, latBucket, lonBucket])
-  @@index([snapshotId, time])
+  @@unique([time, latBucket, lonBucket, model, varsVersion])
+  @@index([model, varsVersion, time])
+  @@index([time])
 }

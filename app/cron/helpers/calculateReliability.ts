@@ -1,5 +1,5 @@
-import { prisma } from "@/prisma";
-import { json } from "stream/consumers";
+import { prisma } from "@/prisma"
+import { json } from "stream/consumers"
 
 type point = { lat: number; lon: number; alt: number | null }
 type Series = Array<point | null>
@@ -21,20 +21,20 @@ function computeHaversine(lat1: number, lat2: number, lon1: number, lon2:number,
 }
 
 function bearingRad(a: point, b: point) {
-    const [lat1, lat2, lon1, lon2] = radian([a.lat, b.lat, a.lon, b.lon]);
-    const dLon = lon2 - lon1;
-    const y = Math.sin(dLon) * Math.cos(lat2);
-    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-    let brng = Math.atan2(y, x); // [-pi, pi]
-    if (brng < 0) brng += 2 * Math.PI; // [0, 2pi)
-    return brng;
+    const [lat1, lat2, lon1, lon2] = radian([a.lat, b.lat, a.lon, b.lon])
+    const dLon = lon2 - lon1
+    const y = Math.sin(dLon) * Math.cos(lat2)
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
+    let brng = Math.atan2(y, x) // [-pi, pi]
+    if (brng < 0) brng += 2 * Math.PI // [0, 2pi)
+    return brng
   }
   
   function angleDeltaDeg(b1: number, b2: number) {
     // smallest difference between two bearings in degrees [0, 180]
-    const d = Math.abs(b2 - b1);
-    const wrapped = Math.min(d, 2 * Math.PI - d);
-    return (wrapped * 180) / Math.PI;
+    const d = Math.abs(b2 - b1)
+    const wrapped = Math.min(d, 2 * Math.PI - d)
+    return (wrapped * 180) / Math.PI
   }
   
   function computeMetrics(series: Series) {
@@ -44,85 +44,120 @@ function bearingRad(a: point, b: point) {
       teleportCount: 0,
       maxGap: 0,
       reasons: {} as any,
-    };
+    }
   
-    let maxSpeed = 0;
-    const teleports = { maxSpeed: 0, gt200: 0, gt350: 0, gt600: 0 };
-    const turns = { gt90: 0, gt135: 0 };
-    const alts = { maxAlt: 0, gt5: 0, gt10: 0 };
+    let maxSpeed = 0
+    const teleports = { maxSpeed: 0, gt200: 0, gt350: 0, gt600: 0 }
+    let teleportEvents = Array<{ hourOffset: number; from: {lat: number; lon: number}; to: {lat: number; lon: number}; dtHours: number; speed: number }>()
+    const turns = { gt90: 0, gt135: 0 }
+    const alts = { maxAlt: 0, gt5: 0, gt10: 0 }
+    let missingEdges = Array<{ hourOffset: number; kind: 'gap_start' | 'gap_end'; lat: number; lon: number }>()
   
-    let prev: point | null = null;
-    let prevPrev: point | null = null;
-    let prevBearing: number | null = null;
+    let prev: point | null = null
+    let prevPrev: point | null = null
+    let prevBearing: number | null = null
   
-    let deltaTime = 1; // hours since last valid point
-    let gap = 0;
+    let deltaTime = 1 // hours since last valid point
+    let gap = 0
+    let hr = 0
+
+    let inGap = false
+    let lastValid: point | null = null
   
     for (const cur of series) {
       if (!cur) {
-        metrics.missingCount++;
-        gap++;
-        deltaTime++;
-        continue;
+        if (!inGap && lastValid) {
+            missingEdges.push({ hourOffset: hr, kind: "gap_start", lat: lastValid.lat, lon: lastValid.lon })
+        }
+        metrics.missingCount++
+        gap++
+        hr++
+        deltaTime++
+        continue
+      }
+
+      if (inGap) {
+        // first valid point after gap
+        missingEdges.push({ hourOffset: hr, kind: "gap_end", lat: cur.lat, lon: cur.lon });
+        inGap = false;
       }
   
       // close a gap
-      metrics.maxGap = Math.max(metrics.maxGap, gap);
-      gap = 0;
+      metrics.maxGap = Math.max(metrics.maxGap, gap)
+      gap = 0
   
       if (prev) {
         // speed (km/h)
-        const speed = computeHaversine(prev.lat, cur.lat, prev.lon, cur.lon, deltaTime);
-        maxSpeed = Math.max(maxSpeed, speed);
-        teleports.maxSpeed = maxSpeed;
+        const speed = computeHaversine(prev.lat, cur.lat, prev.lon, cur.lon, deltaTime)
+        maxSpeed = Math.max(maxSpeed, speed)
+        teleports.maxSpeed = maxSpeed
   
-        if (speed > 200) metrics.teleportCount++;
+        if (speed > 350) {
+            metrics.teleportCount++
+            teleportEvents.push({
+                hourOffset: hr,
+                from: { lat: prev.lat, lon: prev.lon },
+                to: { lat: cur.lat, lon: cur.lon },
+                dtHours: deltaTime,
+                speed,
+            })
+        }
   
-        if (speed > 600) teleports.gt600++;
-        else if (speed > 350) teleports.gt350++;
-        else if (speed > 200) teleports.gt200++;
+        if (speed > 600) teleports.gt600++
+        else if (speed > 350) teleports.gt350++
+        else if (speed > 200) teleports.gt200++
   
         // altitude jump
-        if (prev.alt && cur.alt) {
-            const dAlt = Math.abs(prev.alt - cur.alt);
-            alts.maxAlt = Math.max(alts.maxAlt, dAlt);
-            if (dAlt > 10) alts.gt10++;
-            else if (dAlt > 5) alts.gt5++;
+        if (prev.alt != null && cur.alt != null) {
+            const dAlt = Math.abs(prev.alt - cur.alt)
+            alts.maxAlt = Math.max(alts.maxAlt, dAlt)
+            if (dAlt > 10) alts.gt10++
+            else if (dAlt > 5) alts.gt5++
         }
   
         // turn angle
         if (prevPrev) {
-          const b1 = prevBearing ?? bearingRad(prevPrev, prev);
-          const b2 = bearingRad(prev, cur);
-          const turnDeg = angleDeltaDeg(b1, b2);
+          const b1 = prevBearing ?? bearingRad(prevPrev, prev)
+          const b2 = bearingRad(prev, cur)
+          const turnDeg = angleDeltaDeg(b1, b2)
   
-          if (turnDeg > 135) turns.gt135++;
-          else if (turnDeg > 90) turns.gt90++;
+          if (turnDeg > 135) turns.gt135++
+          else if (turnDeg > 90) turns.gt90++
   
-          prevBearing = b2;
+          prevBearing = b2
         } else {
-          prevBearing = bearingRad(prev, cur);
+          prevBearing = bearingRad(prev, cur)
         }
       }
-  
-      prevPrev = prev;
-      prev = cur;
-      deltaTime = 1;
+
+      inGap = true; 
+      lastValid = cur
+      prevPrev = prev
+      prev = cur
+      deltaTime = 1
+      hr++
     }
   
-    metrics.maxGap = Math.max(metrics.maxGap, gap); // if series ends missing
+    metrics.maxGap = Math.max(metrics.maxGap, gap) // if series ends missing
   
     // scoring
-    let score = 100;
-    const missingScore = metrics.missingCount * 2 + metrics.maxGap * 5;
-    const teleportScore = 15 * teleports.gt600 + 8 * teleports.gt350 + 4 * teleports.gt200;
-    const turnScore = 5 * turns.gt135 + 2 * turns.gt90;
-    const altScore = 3 * alts.gt10 + 1 * alts.gt5;
+    let score = 100
+    const missingScore = metrics.missingCount * 2 + metrics.maxGap * 5
+
+    const teleportScore = Math.min(
+      45,
+      6 * Math.sqrt(teleports.gt200) +
+      10 * Math.sqrt(teleports.gt350) +
+      14 * Math.sqrt(teleports.gt600)
+    )
+    
+    const turnScore = 5 * turns.gt135 + 2 * turns.gt90
+    const altScore = 3 * alts.gt10 + 1 * alts.gt5
+    
+    metrics.score = Math.max(0, 100 - missingScore - teleportScore - turnScore - altScore)    
+    metrics.reasons = { maxSpeed, teleports, teleportEvents, turns, missingEdges, alts }
   
-    metrics.score = Math.max(0, score - missingScore - teleportScore - turnScore - altScore);
-    metrics.reasons = { maxSpeed, teleports, turns, alts };
-  
-    return metrics;
+    return metrics
   }
   
 
@@ -182,14 +217,14 @@ export default async function calculateReliability(runId: number) {
     }
 
     const rows: Array<{
-        runId: number;
-        balloonIndex: number;
-        score: number;
-        missingCount: number;
-        teleportCount: number;
-        maxGap: number;
-        reasons: any;
-    }> = [];
+        runId: number
+        balloonIndex: number
+        score: number
+        missingCount: number
+        teleportCount: number
+        maxGap: number
+        reasons: any
+    }> = []
     
     for (const [balloonIndex, balloonSeries] of byBalloon) {
         const metrics = computeMetrics(balloonSeries)
