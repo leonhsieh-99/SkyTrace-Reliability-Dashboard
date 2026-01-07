@@ -181,7 +181,16 @@ export default async function calculateReliability(runId: number) {
         series[hr] = ok ? { lat: o.lat!, lon: o.lon!, alt: o.alt ?? null } : null
     }
 
-    const rows = []
+    const rows: Array<{
+        runId: number;
+        balloonIndex: number;
+        score: number;
+        missingCount: number;
+        teleportCount: number;
+        maxGap: number;
+        reasons: any;
+    }> = [];
+    
     for (const [balloonIndex, balloonSeries] of byBalloon) {
         const metrics = computeMetrics(balloonSeries)
         rows.push({
@@ -195,14 +204,14 @@ export default async function calculateReliability(runId: number) {
         })
     }
 
-    await prisma.$transaction([
-        prisma.reliability.deleteMany({where: {runId}}),
-        prisma.reliability.createMany({data: rows}),
-        prisma.ingestRun.update({
+    await prisma.$transaction(async (tx) => {
+        await tx.reliability.deleteMany({where: {runId}}),
+        await tx.reliability.createMany({data: rows}),
+        await tx.ingestRun.update({
             where: { id: runId },
             data: { reliabilityAt: new Date()}
         })
-    ])
+})
 
     return { runId, balloons: rows.length }
 }

@@ -1,11 +1,15 @@
-import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error("DB URL not set");
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: ["error", "warn"],
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
 }
-
-const prisma = new PrismaClient();
-
-export { prisma };

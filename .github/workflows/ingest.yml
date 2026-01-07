@@ -1,4 +1,4 @@
-name: Ingest Windborne Data
+name: Run Data Pipeline
 
 on:
   schedule:
