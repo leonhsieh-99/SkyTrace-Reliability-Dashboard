@@ -204,14 +204,12 @@ export default async function calculateReliability(runId: number) {
         })
     }
 
-    await prisma.$transaction(async (tx) => {
-        await tx.reliability.deleteMany({where: {runId}}),
-        await tx.reliability.createMany({data: rows}),
-        await tx.ingestRun.update({
-            where: { id: runId },
-            data: { reliabilityAt: new Date()}
-        })
-})
+    await prisma.reliability.deleteMany({where: {runId}}),
+    await prisma.reliability.createMany({data: rows}),
+    await prisma.ingestRun.update({
+        where: { id: runId },
+        data: { reliabilityAt: new Date()}
+    })
 
     return { runId, balloons: rows.length }
 }
