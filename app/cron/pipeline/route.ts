@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCron } from "../helpers/verifyCron";
 import { ingestWindborne } from "../helpers/ingestWindborne";
-import fetchHr from "../helpers/fetchHr";
 import calculateReliability from "../helpers/calculateReliability";
+import enrichLatest from "../helpers/enrichLatest";
+import { fetchHr } from "../helpers/helpers";
 
 export async function POST(req: NextRequest) {
     try {
@@ -12,9 +13,9 @@ export async function POST(req: NextRequest) {
 
         const ingestion = await ingestWindborne(results)
         const reliability = await calculateReliability(ingestion.runId)
-        // enrichLatest()
+        const enrich = await enrichLatest(reliability.runId)
 
-        return NextResponse.json({ ok: true, ingestion, reliability })
+        return NextResponse.json({ ok: true, ingestion, reliability, enrich })
     } catch (err: any) {
         console.log(err)
         return NextResponse.json(

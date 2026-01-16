@@ -1,10 +1,8 @@
 import { prisma } from "@/prisma"
-import { json } from "stream/consumers"
+import { MissingEdge, TeleportEvent } from "./helpers";
 
 type point = { lat: number; lon: number; alt: number | null }
 type Series = Array<point | null>
-type TeleportEvent = { hourOffset: number; from: {lat: number; lon: number}; to: {lat: number; lon: number}; dtHours: number; speed: number }
-type MissingEdge = { hourOffset: number; kind: "gap_start" | "gap_end"; lat: number; lon: number }
 
 const radian = ([a, b, c, d]: number[]) => ([a, b, c, d]).map(x => x * Math.PI / 180)
 

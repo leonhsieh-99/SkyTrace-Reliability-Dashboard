@@ -1,6 +1,6 @@
 import { prisma } from "@/prisma";
 import { Prisma } from "@prisma/client";
-import fetchHr from "./fetchHr";
+import { fetchHr } from "./helpers";
 
 function parsePoint(x: any): {lat: number; lon: number; alt: number} | null {
     if (!Array.isArray(x) || x.length < 3) return null
