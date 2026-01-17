@@ -1,7 +1,7 @@
 import { prisma } from "@/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(req: NextRequest, { params }: { params : { id: string, balloonIndex: string } }) {
+export async function GET(req: NextRequest, { params }: { params : Promise<{ id: string, balloonIndex: string }> }) {
     const { id, balloonIndex } = await params
     const runId = Number(id)
     const b = Number(balloonIndex)

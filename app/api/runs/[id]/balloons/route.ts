@@ -2,7 +2,7 @@ import { THRESHOLD } from "@/lib/constants";
 import { prisma } from "@/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string }}) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }>}) {
     const { id } = await params
     const runId = Number(id)
     console.log(runId)
