@@ -384,5 +384,15 @@ export default async function enrichLatest(runId: number) {
         data: { enrichAt: new Date() }
     })
 
+    // prune old cells
+    const KEEP_WEATHER_HOURS = 72; // or 48
+    const cutoff = new Date(Date.now() - KEEP_WEATHER_HOURS * 60 * 60 * 1000);
+    
+    await prisma.weatherCacheCell.deleteMany({
+        where: {
+        time: { lt: cutoff },
+        },
+    });
+
     return { rowsEnriched }
 }
