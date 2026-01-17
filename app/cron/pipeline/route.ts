@@ -3,7 +3,7 @@ import { verifyCron } from "../helpers/verifyCron";
 import { ingestWindborne } from "../helpers/ingestWindborne";
 import calculateReliability from "../helpers/calculateReliability";
 import enrichLatest from "../helpers/enrichLatest";
-import { fetchHr } from "../helpers/helpers";
+import { fetchHr } from "../../api/helpers";
 
 export async function POST(req: NextRequest) {
     try {

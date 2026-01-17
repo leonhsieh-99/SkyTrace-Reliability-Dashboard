@@ -1,5 +1,5 @@
 import { prisma } from "@/prisma"
-import { MissingEdge, TeleportEvent } from "./helpers";
+import { MissingEdge, TeleportEvent } from "../../api/helpers";
 
 type point = { lat: number; lon: number; alt: number | null }
 type Series = Array<point | null>
@@ -141,7 +141,6 @@ function bearingRad(a: point, b: point) {
     metrics.maxGap = Math.max(metrics.maxGap, gap) // if series ends missing
   
     // scoring
-    let score = 100
     const missingScore = metrics.missingCount * 2 + metrics.maxGap * 5
 
     const teleportScore = Math.min(

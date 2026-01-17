@@ -1,6 +1,7 @@
 import { prisma } from "@/prisma";
 import { JsonObject } from "@prisma/client/runtime/library";
-import { asArray, fetchWithBackoff, MissingEdge, sleep, TeleportEvent } from "./helpers";
+import { asArray, fetchWithBackoff, MissingEdge, sleep, TeleportEvent } from "../../api/helpers";
+import { MAX_LOCS_PER_REQ, MAX_REQUESTS_PER_RUN, MIN_DELAY_MS, THRESHOLD } from "@/lib/constants";
 
 type CellKey = {
     time: Date
@@ -132,12 +133,6 @@ function groupByDayAndLoc(missingCells: CellKey[]) {
     return Array.from(m.values())
 }
 
-function chunk<T>(arr: T[], size: number) {
-    const out: T[][] = []
-    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
-    return out
-}
-
 async function fetchOpenMeteoBatch(params: {
     lats: number[];
     lons: number[];
@@ -237,7 +232,6 @@ export default async function enrichLatest(runId: number) {
     if (run.enrichAt !== null) throw new Error(`Run ${runId} already enriched. Aborting`)
 
     // Look for suspicious events
-    const THRESHOLD = 80
     const reliabilities = await prisma.reliability.findMany({
         where: { runId: runId, score: { lte: THRESHOLD }},
         orderBy: { score: 'asc' },
@@ -345,9 +339,6 @@ export default async function enrichLatest(runId: number) {
     }
 
     // batch to avoid 414
-    const MAX_LOCS_PER_REQ = 20;
-    const MIN_DELAY_MS = 2000;
-    const MAX_REQUESTS_PER_RUN = 12;
     let requestsMade = 0;
 
     const groups = groupByDayAndLoc(missingCells);

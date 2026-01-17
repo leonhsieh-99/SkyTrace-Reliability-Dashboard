@@ -1,6 +1,6 @@
 import { prisma } from "@/prisma";
 import { Prisma } from "@prisma/client";
-import { fetchHr } from "./helpers";
+import { fetchHr } from "../../api/helpers";
 
 function parsePoint(x: any): {lat: number; lon: number; alt: number} | null {
     if (!Array.isArray(x) || x.length < 3) return null
@@ -12,8 +12,6 @@ function parsePoint(x: any): {lat: number; lon: number; alt: number} | null {
 }
 
 export async function ingestWindborne(results: any[]) {
-    const KEEP_RUNS = 168;
-
     const run = await prisma.ingestRun.create({
         data: { ingestOk: false },
         select: { id: true }
@@ -46,8 +44,8 @@ export async function ingestWindborne(results: any[]) {
                     lon: null,
                     alt: null,
                     parseOk: false,
-                    raw: row as any,
-                    errors: { messages: ['invalid_point']}
+                    raw: p ? Prisma.DbNull : (row as any),
+                    errors: p ? Prisma.DbNull : { messages: ['invalid_point'] },
                 }
             }
             return {
@@ -78,17 +76,13 @@ export async function ingestWindborne(results: any[]) {
     })
 
     // prune old runs
-    const cutoff = await prisma.ingestRun.findFirst({
-        orderBy: { id: 'desc' },
-        skip: KEEP_RUNS,
-        select: { id: true }
-    })
+    const KEEP_HOURS = 48;
 
-    if (cutoff?.id) {
-        await prisma.ingestRun.deleteMany({
-            where: { id: {lt: cutoff.id}},
-        })
-    }
+    await prisma.ingestRun.deleteMany({
+        where: {
+            startedAt: { lt: new Date(Date.now() - KEEP_HOURS * 60 * 60 * 1000) },
+        },
+    });
 
     return { runId: run.id, snapshots: results.length, observations: totalObs }
 }
